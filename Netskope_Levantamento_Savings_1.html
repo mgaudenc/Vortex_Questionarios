@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vortex Security – Levantamento de Ambiente: Consolidação & Savings com Netskope</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root {
     --vortex-blue:   #005a96;
@@ -187,10 +188,41 @@
     display: flex; align-items: center; gap: 8px;
   }
 
+  /* ── SUBMIT BUTTON ── */
+  .btn-submit { background: #0e7a50; color: #fff; }
+  .btn-submit:hover { background: #0a5e3c; }
+  .btn-submit:disabled { background: #6b9e88; cursor: not-allowed; }
+
+  /* ── EMAIL MODAL ── */
+  #email-modal {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,20,40,.55); align-items: center; justify-content: center;
+  }
+  #email-modal.active { display: flex; }
+  #email-modal .modal-box {
+    background: #fff; border-radius: 14px; padding: 40px 48px;
+    text-align: center; max-width: 420px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  #email-modal .modal-icon { font-size: 48px; margin-bottom: 16px; }
+  #email-modal .modal-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+  #email-modal .modal-msg { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+  #email-modal .modal-btn {
+    background: var(--vortex-blue); color: #fff; border: none; padding: 10px 28px;
+    border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  #email-modal .modal-btn:hover { background: var(--vortex-navy); }
+  #email-modal .spinner {
+    width: 44px; height: 44px; border: 4px solid #d0e4f0;
+    border-top-color: var(--vortex-blue); border-radius: 50%;
+    animation: spin .8s linear infinite; margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* ── PRINT / PDF ── */
   @media print {
     body { background: #fff; }
-    #sidebar, #topbar .topbar-actions, .section-nav, .conf-banner { display: none !important; }
+    #sidebar, #topbar .topbar-actions, .section-nav, .conf-banner, #email-modal { display: none !important; }
     #main { margin-left: 0; }
     #topbar { position: static; box-shadow: none; border: none; }
     #content { padding: 0; max-width: 100%; }
@@ -243,6 +275,7 @@
     <div class="topbar-actions">
       <button class="btn btn-outline" onclick="clearForm()">🗑 Limpar</button>
       <button class="btn btn-pdf" onclick="savePDF()">⬇ Salvar PDF</button>
+      <button class="btn btn-submit" onclick="submitForm()" id="btn-submit">📨 Enviar Respostas</button>
     </div>
   </div>
 
@@ -609,8 +642,11 @@
       </div>
 
       <div style="background: linear-gradient(135deg, #002846 0%, #003c64 100%); border-radius: 10px; padding: 24px; margin-top: 8px; text-align: center;">
-        <div style="color: rgba(255,255,255,.6); font-size: 13px; margin-bottom: 12px;">Formulário preenchido? Gere o PDF e envie ao seu contato Vortex para elaboração do estudo de savings.</div>
-        <button class="btn btn-pdf" style="font-size: 15px; padding: 12px 32px;" onclick="savePDF()">⬇ Salvar como PDF</button>
+        <div style="color: rgba(255,255,255,.6); font-size: 13px; margin-bottom: 16px;">Formulário preenchido? Envie as respostas diretamente à equipe Vortex para elaboração do estudo de savings. Você também pode salvar uma cópia em PDF.</div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-submit" style="font-size: 15px; padding: 12px 32px;" onclick="submitForm()">📨 Enviar Respostas</button>
+          <button class="btn btn-pdf" style="font-size: 15px; padding: 12px 32px;" onclick="savePDF()">⬇ Salvar como PDF</button>
+        </div>
       </div>
 
       <div class="section-nav">
@@ -619,6 +655,32 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ═══ EMAIL MODAL ═══ -->
+<div id="email-modal">
+  <div class="modal-box">
+    <div id="modal-sending">
+      <div class="spinner"></div>
+      <div class="modal-title">Enviando respostas...</div>
+      <div class="modal-msg">Aguarde enquanto as respostas são transmitidas à equipe Vortex.</div>
+    </div>
+    <div id="modal-success" style="display:none">
+      <div class="modal-icon">✅</div>
+      <div class="modal-title">Enviado com sucesso!</div>
+      <div class="modal-msg">As respostas chegaram à equipe Vortex. Em breve entraremos em contato para avançar com a proposta.<br><br>Você pode <b>Salvar PDF</b> para guardar uma cópia local.</div>
+      <button class="modal-btn" onclick="closeModal()">Fechar</button>
+    </div>
+    <div id="modal-error" style="display:none">
+      <div class="modal-icon">⚠️</div>
+      <div class="modal-title">Falha no envio</div>
+      <div class="modal-msg" id="modal-error-msg">Não foi possível enviar. Verifique sua conexão e tente novamente, ou salve o PDF e envie manualmente.</div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:4px;">
+        <button class="modal-btn" onclick="closeModal()" style="background:#6b7280;">Fechar</button>
+        <button class="modal-btn" onclick="submitForm()">Tentar novamente</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -677,6 +739,131 @@ document.querySelectorAll('input, select, textarea').forEach(el => {
 
 function savePDF() {
   window.print();
+}
+
+// ═══ EMAILJS ═══
+emailjs.init('Y9528JHl-dyGBqnCe');
+
+function openModal(state) {
+  document.getElementById('email-modal').classList.add('active');
+  document.getElementById('modal-sending').style.display = state === 'sending' ? 'block' : 'none';
+  document.getElementById('modal-success').style.display  = state === 'success'  ? 'block' : 'none';
+  document.getElementById('modal-error').style.display    = state === 'error'    ? 'block' : 'none';
+}
+function closeModal() {
+  document.getElementById('email-modal').classList.remove('active');
+}
+
+function getFieldValue(cell) {
+  const radio = cell.querySelector('input[type=radio]:checked');
+  if (radio) return radio.closest('label')?.textContent?.trim() || radio.value;
+  const checks = cell.querySelectorAll('input[type=checkbox]:checked');
+  if (checks.length) return Array.from(checks).map(c => c.closest('label')?.textContent?.trim() || c.value).join(', ');
+  const sel = cell.querySelector('select');
+  if (sel) return sel.options[sel.selectedIndex]?.text || '';
+  const ta = cell.querySelector('textarea');
+  if (ta) return ta.value.trim();
+  const inp = cell.querySelector('input[type=text]');
+  if (inp) return inp.value.trim();
+  return '';
+}
+
+// Mapa de Contratos (tabela de inventário) — envia somente as linhas preenchidas
+function collectInvTable(sec) {
+  const tbl = sec.querySelector('.inv-table');
+  if (!tbl) return '';
+  const rows = Array.from(tbl.querySelectorAll('tr'));
+  if (!rows.length) return '';
+  const headers = Array.from(rows[0].querySelectorAll('th')).map(t => t.textContent.trim());
+  if (!headers.length) return '';
+
+  const tdS = 'padding:7px 9px;border:1px solid #b8d0e4;vertical-align:top';
+  let body = '';
+  rows.slice(1).forEach(row => {
+    const inputs = Array.from(row.querySelectorAll('input[type=text]'));
+    if (!inputs.some(i => i.value.trim())) return;
+    body += '<tr>' + inputs.map(i => `<td style="${tdS}">${i.value.trim() || '&mdash;'}</td>`).join('') + '</tr>';
+  });
+  if (!body) return '<p style="font-family:Arial,sans-serif;font-size:13px;color:#aaa">Mapa de contratos não preenchido.</p>';
+
+  let html = '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin-bottom:8px"><tr style="background:#d0e4f0">';
+  headers.forEach(hd => { html += `<th style="padding:7px 9px;text-align:left;border:1px solid #b8d0e4">${hd}</th>`; });
+  html += '</tr>' + body + '</table>';
+  return html;
+}
+
+function collectFormData() {
+  const sectionOrder = ['s0','s1','s2','s3','s4','s5','s6','s7','s8','s9'];
+  const bd  = 'padding:7px 9px;border:1px solid #b8d0e4';
+  const tdQ = bd + ';background:#f8f9fb';
+  const tdA = bd + ';color:#0d1f35';
+  const tdV = bd + ';background:#fafafa;color:#aaa';
+  const tdO = bd + ';color:#5a7a95';
+  let html = '';
+
+  sectionOrder.forEach(sid => {
+    const sec = document.getElementById(sid);
+    if (!sec) return;
+    const meta = sectionMeta[sid] || { title: sid };
+    const rows = sec.querySelectorAll('.form-table tr');
+    const inv  = collectInvTable(sec);
+    if (!rows.length && !inv) return;
+
+    html += `<h2 style="font-family:Arial,sans-serif;font-size:15px;color:#002846;border-bottom:2px solid #005a96;padding-bottom:6px;margin:28px 0 12px">${meta.title}</h2>`;
+
+    if (inv) html += inv;
+
+    if (rows.length) {
+      html += `<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;margin-bottom:8px">
+                 <tr style="background:#d0e4f0">
+                   <th style="padding:7px 10px;text-align:left;width:38%;border:1px solid #b8d0e4">Pergunta</th>
+                   <th style="padding:7px 10px;text-align:left;width:32%;border:1px solid #b8d0e4">Resposta</th>
+                   <th style="padding:7px 10px;text-align:left;width:30%;border:1px solid #b8d0e4">Observações</th>
+                 </tr>`;
+      rows.forEach(row => {
+        const qCell = row.querySelector('.q-cell');
+        const aCell = row.querySelector('.a-cell');
+        const oCell = row.querySelector('.o-cell');
+        if (!qCell || !aCell) return;
+
+        const question = qCell.textContent.replace('(*)', '').trim();
+        const answer   = getFieldValue(aCell);
+        const obs      = oCell ? getFieldValue(oCell) : '';
+
+        html += `<tr><td style="${tdQ}">${question}</td><td style="${answer ? tdA : tdV}">${answer || '—'}</td><td style="${tdO}">${obs || ''}</td></tr>`;
+      });
+      html += '</table>';
+    }
+  });
+
+  return html;
+}
+
+function submitForm() {
+  const cliente = document.querySelector('[name=s0_cliente]')?.value?.trim() || 'Cliente não identificado';
+  const hoje = new Date();
+  const data = String(hoje.getDate()).padStart(2,'0') + '/' +
+               String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
+
+  openModal('sending');
+  document.getElementById('btn-submit').disabled = true;
+
+  emailjs.send('service_1210n8k', 'template_1l4k61n', {
+    titulo:    'Levantamento de Savings Netskope',
+    cliente:   cliente,
+    data:      data,
+    respostas: collectFormData()
+  })
+  .then(() => {
+    openModal('success');
+    document.getElementById('btn-submit').disabled = false;
+  })
+  .catch(err => {
+    document.getElementById('modal-error-msg').textContent =
+      'Erro ao enviar (' + (err.text || err.status || 'desconhecido') + '). Verifique a conexão e tente novamente, ou salve o PDF e envie manualmente.';
+    openModal('error');
+    document.getElementById('btn-submit').disabled = false;
+  });
 }
 
 function clearForm() {
